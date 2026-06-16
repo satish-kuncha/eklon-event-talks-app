@@ -443,8 +443,13 @@ body {
 .badge.issue { background-color: var(--badge-issue-bg); color: var(--badge-issue); }
 .badge.update { background-color: var(--badge-update-bg); color: var(--badge-update); }
 
-/* Tweet Button in Card */
-.tweet-action-btn {
+/* Action Buttons in Card */
+.card-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.tweet-action-btn, .copy-action-btn {
     background: transparent;
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -462,6 +467,12 @@ body {
     color: var(--color-twitter);
     background-color: rgba(29, 155, 240, 0.1);
     border-color: rgba(29, 155, 240, 0.2);
+}
+
+.copy-action-btn:hover {
+    color: var(--badge-feature);
+    background-color: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.2);
 }
 
 /* Card Content HTML Styling */
