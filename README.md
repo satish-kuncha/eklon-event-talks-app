@@ -1,108 +1,63 @@
-# BigQuery Release Notes Dashboard - Architecture & Deep Dive
+# BigQuery Release Notes Dashboard
 
-This document explains the architecture, feature set, client-server split, and request-response flow of the BigQuery Release Notes Dashboard application.
-
----
-
-## 1. Project Overview & Features
-
-The web application tracks, parses, and displays BigQuery updates dynamically with sharing features:
-* **Granular Feed Parsing**: Splits daily bulk release updates into individual feature/issue cards.
-* **Smart Filter & Search**: Allows real-time search queries and category filtering (Features, Changed, Deprecated, Issues) on the client side.
-* **X/Twitter Web Intent Integration**: Includes a custom compose modal with live character limit tracking (280 characters), quick hashtag chips, and a real-time mock tweet visual preview.
-* **Modern Interface**: Designed using CSS Variables, custom glassmorphism components, animated loaders, and responsive layouts.
+An elegant, dark-themed Flask web application that parses the official Google Cloud BigQuery RSS release feed and provides an interactive interface to search, filter, and share updates directly to X (formerly Twitter).
 
 ---
 
-## 2. Server vs. Client Breakdown
+## 🚀 Key Features
 
-```
- ┌──────────────────────────────────────────────────────────┐
- │                       CLIENT SIDE                        │
- │         HTML5 (Structure) | Vanilla CSS (Styles)         │
- │                  JavaScript (App Logic)                  │
- └────────────────────────────┬─────────────────────────────┘
-                              │ HTTP Requests
-                              ▼
- ┌──────────────────────────────────────────────────────────┐
- │                       SERVER SIDE                        │
- │         Flask Web Server (API Gateway / Router)          │
- │              BeautifulSoup & ElementTree (Parsers)       │
- └────────────────────────────┬─────────────────────────────┘
-                              │ Outgoing Requests
-                              ▼
- ┌──────────────────────────────────────────────────────────┐
- │                 GOOGLE CLOUD PLATFORM                    │
- │               BigQuery XML Release Feed                  │
- └──────────────────────────────────────────────────────────┘
-```
-
-### Server-Side (`app.py`)
-Responsible for routing, XML parsing, and heading-based extraction logic:
-* **Libraries**: `Flask`, `xml.etree.ElementTree`, `BeautifulSoup` (`bs4`), and `urllib.request`.
-* **Atom XML Fetcher**: Fetches raw XML feed from `https://docs.cloud.google.com/feeds/bigquery-release-notes.xml`.
-* **BeautifulSoup Splitter**: Google Cloud publishes multiple updates grouped under a single date tag. The server parses the raw HTML tag text, searches for `<h3>`/`<h4>` header blocks, and splits the payload into individual, typed updates.
-* **In-Memory Cache**: Caches fetched updates to ensure quick loads, offering a `?refresh=true` endpoint parameter to bypass cache and fetch fresh results.
-
-### Client-Side (`templates/index.html`, `styles.css`, `app.js`)
-Handles UI rendering, search logic, styling, and social integrations:
-* **Dynamic Grid rendering**: Submits an asynchronous request to `/api/releases`, parses JSON payload, and appends structured cards to the DOM.
-* **Real-time Filters**: Re-renders cards based on the text search bar input or selected category buttons.
-* **Tweet Modal**: Calculates character usage (blocking intent generation if it exceeds 280 characters), handles quick hashtag appending, and mirrors the input inside an X/Twitter-themed HTML card.
+* **Real-time Live Feed**: Pulls and caches the official feed directly from Google Cloud Platform.
+* **Granular Decomposition**: Splits bulk daily release entries into individual card items based on type.
+* **Instant Filtering & Search**: Filter releases by type (Features, Changed, Deprecated, Issues) or search matching terms in real-time.
+* **Interactive X/Twitter Composer**:
+  * Customizable pre-drafted tweets with character length verification (max 280).
+  * Interactive hashtag helper buttons.
+  * Live visual mockup of the final tweet layout.
+  * Instant Web Intent integration for direct posting.
+* **Polished UX**: Smooth CSS micro-animations, glassmorphism UI components, and integrated toast notifications.
 
 ---
 
-## 3. Sample Flow: Refreshing Release Notes
+## 🛠️ Tech Stack
 
-When you click the **"Refresh Notes"** button, the following request-response process is executed:
+* **Backend**: Python 3, Flask
+* **Libraries**: ElementTree (XML parsing), BeautifulSoup4 (HTML decomposition)
+* **Frontend**: Plain Vanilla HTML5, CSS3, JavaScript (ES6)
+* **Icons & Fonts**: FontAwesome, Google Fonts (Outfit & Plus Jakarta Sans)
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant Browser as Client (app.js)
-    participant Server as Flask Server (app.py)
-    participant GCP as Google Cloud RSS Feed
+---
 
-    User->>Browser: Clicks "Refresh Notes"
-    Note over Browser: 1. Shows loading spinner<br/>2. Disables Refresh button
-    Browser->>Server: HTTP GET /api/releases?refresh=true
-    
-    Server->>GCP: HTTP GET bigquery-release-notes.xml
-    GCP-->>Server: Returns Raw XML feed payload
-    
-    Note over Server: 1. Parse XML to extract <entry> tags<br/>2. Use BeautifulSoup to split <content> HTML by h3/h4 headers<br/>3. Reconstruct into clean JSON items<br/>4. Cache data in memory
-    
-    Server-->>Browser: HTTP 200 OK (JSON updates list)
-    
-    Note over Browser: 1. Hides loading spinner<br/>2. Renders card elements dynamically<br/>3. Updates metrics (total cards, last checked)<br/>4. Shows confirmation toast message
-    Browser-->>User: Renders new release cards in UI
+## ⚙️ Installation & Setup
+
+### 1. Clone the repository
+```bash
+git clone https://github.com/satish-kuncha/eklon-event-talks-app.git
+cd eklon-event-talks-app
 ```
 
-### Sample HTTP Payloads
-
-#### 1. API Request (Client to Flask Server)
-```http
-GET /api/releases?refresh=true HTTP/1.1
-Host: 127.0.0.1:5000
-Accept: application/json
+### 2. Install Dependencies
+Make sure you have Python 3 and `pip` installed. Run the following command:
+```bash
+pip install flask requests beautifulsoup4
 ```
 
-#### 2. API Response (Flask Server to Client)
-```json
-{
-  "success": true,
-  "last_fetched": "2026-06-16 14:31:00",
-  "updates": [
-    {
-      "id": "0_0",
-      "date": "June 15, 2026",
-      "updated": "2026-06-15T00:00:00-07:00",
-      "type": "Feature",
-      "html": "<p>Use Gemini Cloud Assist to analyze your SQL queries and receive recommendations...</p>",
-      "text": "Use Gemini Cloud Assist to analyze your SQL queries and receive recommendations...",
-      "link": "https://docs.cloud.google.com/bigquery/docs/release-notes#June_15_2026"
-    }
-  ]
-}
+### 3. Start the Application
+Run the Flask server locally:
+```bash
+python app.py
 ```
+
+### 4. View in Browser
+Open your browser and navigate to:
+[http://127.0.0.1:5000](http://127.0.0.1:5000)
+
+---
+
+## 📖 Project Structure & Documentation
+
+* **[`app.py`](app.py)**: The entry point Flask server containing core fetching and parsing logics.
+* **[`templates/index.html`](templates/index.html)**: Interactive UI layout structure.
+* **[`static/css/styles.css`](static/css/styles.css)**: Glassmorphic theme custom stylesheet.
+* **[`static/js/app.js`](static/js/app.js)**: Frontend logic for search, modal controls, and tweet assembly.
+* **[`ARCHITECTURE.md`](ARCHITECTURE.md)**: Detailed system layout, flowcharts, and network request sequence diagrams.
+* **[`EXPLANATION_APP_PY.md`](EXPLANATION_APP_PY.md)**: Complete code commentary for the backend Flask script.
