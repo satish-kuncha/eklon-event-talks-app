@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeModalBtn = document.getElementById('close-modal');
     const cancelTweetBtn = document.getElementById('cancel-tweet-btn');
     const publishTweetBtn = document.getElementById('publish-tweet-btn');
+    const autoShortenBtn = document.getElementById('auto-shorten-btn');
     const tweetTextarea = document.getElementById('tweet-textarea');
     const charCounter = document.getElementById('char-counter');
     const tagChips = document.querySelectorAll('.tag-chip');
@@ -130,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             
             updatesGrid.innerHTML = filtered.map(update => {
                 const typeClass = update.type.toLowerCase();
+                const isLong = update.text.length > 250;
                 return `
                     <div class="update-card" data-id="${update.id}">
                         <div class="card-header">
@@ -138,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="card-date">${update.date}</span>
                             </div>
                             <div class="card-actions">
-                                <button class="copy-action-btn" title="Copy update text to clipboard" onclick="window.copyToClipboard('${update.id}')">
+                                <button class="copy-action-btn" title="Copy update text to clipboard" onclick="window.copyToClipboard('${update.id}', this)">
                                     <i class="fa-regular fa-copy"></i>
                                 </button>
                                 <button class="tweet-action-btn" title="Compose Tweet for this update" onclick="window.openTweetModal('${update.id}')">
@@ -146,9 +148,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                 </button>
                             </div>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body ${isLong ? 'collapsed' : ''}" id="body-${update.id}">
                             ${update.html}
                         </div>
+                        ${isLong ? `
+                        <button class="read-more-btn" onclick="window.toggleCardReadMore('${update.id}', this)">
+                            <span>Read More</span> <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                        ` : ''}
                         <div class="card-footer">
                             <a href="${update.link}" target="_blank" class="original-link">
                                 View official documentation <i class="fa-solid fa-arrow-up-right-from-square"></i>
@@ -293,12 +300,23 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshBtn.addEventListener('click', () => loadUpdates(true));
 
     // Copy to Clipboard Logic
-    window.copyToClipboard = function(updateId) {
+    window.copyToClipboard = function(updateId, buttonElement) {
         const update = updates.find(u => u.id === updateId);
         if (!update) return;
 
         navigator.clipboard.writeText(update.text).then(() => {
             showToast('Text copied to clipboard!');
+            
+            // Temporary checkmark icon replacement for clipboard feedback
+            if (buttonElement) {
+                const originalIcon = buttonElement.innerHTML;
+                buttonElement.innerHTML = '<i class="fa-solid fa-check" style="color: var(--badge-feature);"></i>';
+                buttonElement.disabled = true;
+                setTimeout(() => {
+                    buttonElement.innerHTML = originalIcon;
+                    buttonElement.disabled = false;
+                }, 1500);
+            }
         }).catch(err => {
             console.error('Could not copy text: ', err);
             showToast('Failed to copy text', 'error');
@@ -367,6 +385,50 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape' && !tweetModal.classList.contains('hidden')) {
             closeTweetModal();
         }
+    });
+
+    // Card Read More Toggle logic
+    window.toggleCardReadMore = function(updateId, button) {
+        const body = document.getElementById(`body-${updateId}`);
+        if (!body) return;
+        
+        const isCollapsed = body.classList.toggle('collapsed');
+        if (isCollapsed) {
+            button.innerHTML = '<span>Read More</span> <i class="fa-solid fa-chevron-down"></i>';
+            body.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+            button.innerHTML = '<span>Read Less</span> <i class="fa-solid fa-chevron-up"></i>';
+        }
+    };
+
+    // Auto-Shorten Tweet composer text to fit 280 characters
+    autoShortenBtn.addEventListener('click', () => {
+        if (!selectedUpdate) return;
+        
+        const hashtags = Array.from(selectedHashtags).join(' ');
+        const dateStr = `📢 BigQuery Update (${selectedUpdate.date})\n\n`;
+        const typeStr = `[${selectedUpdate.type}] `;
+        const linkStr = `\n\nRead more: ${selectedUpdate.link}`;
+        const tagsStr = hashtags ? `\n\n${hashtags}` : '';
+        
+        const reservedLength = dateStr.length + typeStr.length + linkStr.length + tagsStr.length;
+        const maxBodyLength = 280 - reservedLength;
+        
+        if (maxBodyLength <= 0) {
+            showToast('Auto-shorten failed: hashtags & metadata exceed 280 limit!', 'error');
+            return;
+        }
+        
+        let desc = selectedUpdate.text;
+        if (desc.length > maxBodyLength) {
+            desc = desc.substring(0, maxBodyLength - 3).trim() + '...';
+        }
+        
+        const shortenedTweetText = `${dateStr}${typeStr}${desc}${tagsStr}${linkStr}`;
+        tweetTextarea.value = shortenedTweetText;
+        updateCharCounter();
+        updateXPreview();
+        showToast('Tweet text auto-shortened!');
     });
 
     // Initial Load
